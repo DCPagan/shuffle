@@ -17,7 +17,9 @@ import Data.Ix (range)
 import Data.List (unfoldr)
 import Data.Tuple (curry)
 import Numeric.Natural (Natural)
+import System.Environment (getArgs)
 import System.Random (getStdRandom, uniformR)
+import Control.Monad (void)
 
 ulength :: Foldable t => t a -> Natural
 ulength = foldl' (\c _ -> c + 1) 0
@@ -113,3 +115,6 @@ printShuffles = mapM_ <$> (print .) . shuffleTuple <*> factorialRange . ulength
  -}
 randomShuffle :: MonadIO m => [a] -> m [a]
 randomShuffle = fmap <$> shuffle <*> getStdRandom . curry uniformR 0 . pred . factorial . ulength
+
+main :: IO ()
+main = getArgs >>= mapM randomShuffle >>= mapM_ putStrLn
