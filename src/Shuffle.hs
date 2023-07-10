@@ -1,8 +1,7 @@
 module Shuffle
   ( fisherYates,
     shuffle,
-    shuffleTuple,
-    printShuffles,
+    randomShuffle,
     factorial,
     factorialRange,
     factoradicBE,
@@ -11,14 +10,11 @@ module Shuffle
   )
 where
 
-import Control.Monad ((>=>))
 import Control.Monad.IO.Class (MonadIO)
 import Data.Foldable (foldl')
 import Data.Ix (range)
 import Data.List (unfoldr)
-import Data.Tuple (curry)
 import Numeric.Natural (Natural)
-import System.Environment (getArgs)
 import System.Random (getStdRandom, uniformR)
 
 ulength :: Foldable t => t a -> Natural
@@ -64,6 +60,7 @@ factoradicLE = (. (1,)) . unfoldr . f
  - Swap the first element of a list with that of the given index.
  -}
 swap :: Natural -> [a] -> [a]
+swap _ [] = []
 swap 0 l = l
 swap i l = y : first ++ x : second
   where
@@ -91,35 +88,7 @@ shuffle :: [a] -> Natural -> [a]
 shuffle = (.) <$> fisherYates <*> factoradicBE . ulength
 
 {-
- - List all permutations for a given list.
- -}
-permutations :: [a] -> [[a]]
-permutations = map <$> shuffle <*> factorialRange . ulength
-
-{-
- - Get the shuffle for a given array along with its permutation's serial and
- - (big-endian) factoradic.
- -}
-shuffleTuple :: [a] -> Natural -> (Natural, [Natural], [a])
-shuffleTuple =
-  curry $
-    (,,)
-      <$> uncurry seq
-      <*> uncurry (factoradicBE . ulength)
-      <*> uncurry shuffle
-
-{-
- - Print all shuffles of a given array in tuples with its permutation serial
- - and its (big-endian) factoradic.
- -}
-printShuffles :: Show a => [a] -> IO ()
-printShuffles = mapM_ <$> (print .) . shuffleTuple <*> factorialRange . ulength
-
-{-
  - Randomly shuffle a list.
  -}
 randomShuffle :: MonadIO m => [a] -> m [a]
 randomShuffle = fmap <$> shuffle <*> getStdRandom . curry uniformR 0 . pred . factorial . ulength
-
-main :: IO ()
-main = getArgs >>= mapM_ (randomShuffle >=> putStrLn)
