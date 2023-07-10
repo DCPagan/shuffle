@@ -11,6 +11,7 @@ module Shuffle
   )
 where
 
+import Control.Monad ((>=>))
 import Control.Monad.IO.Class (MonadIO)
 import Data.Foldable (foldl')
 import Data.Ix (range)
@@ -19,7 +20,6 @@ import Data.Tuple (curry)
 import Numeric.Natural (Natural)
 import System.Environment (getArgs)
 import System.Random (getStdRandom, uniformR)
-import Control.Monad (void)
 
 ulength :: Foldable t => t a -> Natural
 ulength = foldl' (\c _ -> c + 1) 0
@@ -61,6 +61,15 @@ factoradicLE = (. (1,)) . unfoldr . f
       | otherwise = Just (mod n i, (succ i, div n i))
 
 {-
+ - Swap the first element of a list with that of the given index.
+ -}
+swap :: Natural -> [a] -> [a]
+swap 0 l = l
+swap i l = y : first ++ x : second
+  where
+    (x : first, y : second) = splitAt (fromIntegral i) l
+
+{-
  - A purely functional, lazy implementation of the Fisher-Yates algorithm,
  - which derives its swaps from a given (big-endian) factoradic rather than
  - calculating each swap randomly.
@@ -70,10 +79,6 @@ fisherYates ls [] = ls
 fisherYates ls (s : ss) = y : fisherYates ys ss
   where
     y : ys = swap s ls
-    swap 0 l = l
-    swap i l = y : first ++ x : second
-      where
-        (x : first, y : second) = splitAt (fromIntegral i) l
 
 {-
  - A purely functional, lazy implementation of a shuffle algorithm, which
@@ -117,4 +122,4 @@ randomShuffle :: MonadIO m => [a] -> m [a]
 randomShuffle = fmap <$> shuffle <*> getStdRandom . curry uniformR 0 . pred . factorial . ulength
 
 main :: IO ()
-main = getArgs >>= mapM randomShuffle >>= mapM_ putStrLn
+main = getArgs >>= mapM_ (randomShuffle >=> putStrLn)
