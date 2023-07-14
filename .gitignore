@@ -1,1 +1,3 @@
 .stack-work/
+shuffle.cabal
+stack.yaml.lock

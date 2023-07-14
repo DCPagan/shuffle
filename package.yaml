@@ -22,24 +22,25 @@ description:         Please see the README on GitHub at <https://github.com/DCPa
 dependencies:
 - base >= 4.7 && < 5
 - random
+- vector
 
 ghc-options:
 - -Wall
 - -Wcompat
 - -Widentities
 - -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
 - -Wmissing-export-lists
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
+- -Wno-type-defaults
 - -XTupleSections
 
 library:
   source-dirs: src
 
 executables:
-  shuffle-exe:
+  shuf:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

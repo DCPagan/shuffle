@@ -1,8 +1,6 @@
 module Main (main) where
 
-import Control.Monad ((>=>))
-import Shuffle (randomShuffle)
-import System.Environment (getArgs)
+import Shuffle (randomShuffleVector)
 
 main :: IO ()
-main = getArgs >>= mapM_ (randomShuffle >=> putStrLn)
+main = words <$> getContents >>= randomShuffleVector >>= mapM_ putStrLn

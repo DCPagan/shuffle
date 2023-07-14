@@ -1,19 +1,26 @@
 module Shuffle
   ( fisherYates,
+    fisherYatesVector,
     shuffle,
+    shuffleVector,
     randomShuffle,
+    randomShuffleVector,
     factorial,
     factorialRange,
     factoradicBE,
     factoradicLE,
     ulength,
+    newSTFromList,
   )
 where
 
 import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.ST
 import Data.Foldable (foldl')
 import Data.Ix (range)
 import Data.List (unfoldr)
+import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as VM
 import Numeric.Natural (Natural)
 import System.Random (getStdRandom, uniformR)
 
@@ -62,9 +69,10 @@ factoradicLE = (. (1,)) . unfoldr . f
 swap :: Natural -> [a] -> [a]
 swap _ [] = []
 swap 0 l = l
-swap i l = y : first ++ x : second
-  where
-    (x : first, y : second) = splitAt (fromIntegral i) l
+swap i l = case splitAt (fromIntegral i) l of
+  ([], _) -> l
+  (_, []) -> l
+  (x : first, y : second) -> y : first ++ x : second
 
 {-
  - A purely functional, lazy implementation of the Fisher-Yates algorithm,
@@ -73,9 +81,9 @@ swap i l = y : first ++ x : second
  -}
 fisherYates :: [a] -> [Natural] -> [a]
 fisherYates ls [] = ls
-fisherYates ls (s : ss) = y : fisherYates ys ss
-  where
-    y : ys = swap s ls
+fisherYates ls (s : ss) = case swap s ls of
+  [] -> ls
+  y : ys -> y : fisherYates ys ss
 
 {-
  - A purely functional, lazy implementation of a shuffle algorithm, which
@@ -92,3 +100,39 @@ shuffle = (.) <$> fisherYates <*> factoradicBE . ulength
  -}
 randomShuffle :: MonadIO m => [a] -> m [a]
 randomShuffle = fmap <$> shuffle <*> getStdRandom . curry uniformR 0 . pred . factorial . ulength
+
+{-
+ - Initialize a state thread with a vector of the given data.
+ -}
+newSTFromList :: VM.PrimMonad m => [a] -> m (VM.MVector (VM.PrimState m) a)
+newSTFromList list = do
+  vm <- VM.new (length list)
+  mapM_ (\(i, x) -> VM.write vm i x) (zip (enumFrom 0) list)
+  return vm
+
+{-
+ - The Fisher-Yates algorithm applied to a mutable vector.
+ -}
+fisherYatesVector :: VM.PrimMonad m => VM.MVector (VM.PrimState m) a -> [Natural] -> m ()
+fisherYatesVector vm swaps =
+  mapM_ (\(i, j) -> VM.swap vm i (i + j)) (zip (enumFrom 0) (fmap fromIntegral swaps))
+
+{-
+ - Shuffle over a vector given a permutation serial.
+ -}
+shuffleVector :: VM.PrimMonad m =>
+  VM.MVector (VM.PrimState m) a -> Natural -> m ()
+shuffleVector vm n = do
+  let swaps = factoradicBE (fromIntegral $ VM.length vm) n
+  fisherYatesVector vm swaps
+
+{-
+ - Randomly shuffle a list as a vector.
+ -}
+randomShuffleVector :: MonadIO m => [a] -> m (V.Vector a)
+randomShuffleVector list = do
+  n <- getStdRandom $ uniformR (0, factorial (ulength list) - 1)
+  return $ runST $ do
+    vm <- newSTFromList list
+    shuffleVector vm n
+    V.freeze vm
