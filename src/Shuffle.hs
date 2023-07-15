@@ -2,7 +2,6 @@ module Shuffle
   ( fisherYates,
     fisherYatesVector,
     shuffle,
-    shuffleVector,
     randomShuffle,
     randomShuffleVector,
     factorial,
@@ -19,10 +18,11 @@ import Control.Monad.ST
 import Data.Foldable (foldl')
 import Data.Ix (range)
 import Data.List (unfoldr)
-import qualified Data.Vector as V
-import qualified Data.Vector.Mutable as VM
+import qualified Data.Vector.Generic as G
+import qualified Data.Vector.Generic.Mutable as GM
 import Numeric.Natural (Natural)
-import System.Random (getStdRandom, uniformR)
+import System.Random (getStdRandom, mkStdGen, randomIO, uniformR)
+import System.Random.Stateful (RandomGenM, newSTGenM, randomRM)
 
 ulength :: Foldable t => t a -> Natural
 ulength = foldl' (\c _ -> c + 1) 0
@@ -104,35 +104,30 @@ randomShuffle = fmap <$> shuffle <*> getStdRandom . curry uniformR 0 . pred . fa
 {-
  - Initialize a state thread with a vector of the given data.
  -}
-newSTFromList :: VM.PrimMonad m => [a] -> m (VM.MVector (VM.PrimState m) a)
+newSTFromList :: (GM.PrimMonad m, GM.MVector v a) => [a] -> m (v (GM.PrimState m) a)
 newSTFromList list = do
-  vm <- VM.new (length list)
-  mapM_ (\(i, x) -> VM.write vm i x) (zip (enumFrom 0) list)
+  vm <- GM.new (length list)
+  mapM_ (uncurry $ GM.write vm) (zip (enumFrom 0) list)
   return vm
 
 {-
  - The Fisher-Yates algorithm applied to a mutable vector.
  -}
-fisherYatesVector :: VM.PrimMonad m => VM.MVector (VM.PrimState m) a -> [Natural] -> m ()
-fisherYatesVector vm swaps =
-  mapM_ (\(i, j) -> VM.swap vm i (i + j)) (zip (enumFrom 0) (fmap fromIntegral swaps))
-
-{-
- - Shuffle over a vector given a permutation serial.
- -}
-shuffleVector :: VM.PrimMonad m =>
-  VM.MVector (VM.PrimState m) a -> Natural -> m ()
-shuffleVector vm n = do
-  let swaps = factoradicBE (fromIntegral $ VM.length vm) n
-  fisherYatesVector vm swaps
+fisherYatesVector ::
+  (GM.PrimMonad m, GM.MVector v a, RandomGenM g r m) =>
+  v (GM.PrimState m) a -> g -> m ()
+fisherYatesVector vm rng = do
+  let l = pred $ GM.length vm
+  mapM_ (\i -> randomRM (i, l) rng >>= GM.swap vm i) $ enumFromTo 0 (pred l)
 
 {-
  - Randomly shuffle a list as a vector.
  -}
-randomShuffleVector :: MonadIO m => [a] -> m (V.Vector a)
+randomShuffleVector :: (MonadIO m, G.Vector v a) => [a] -> m (v a)
 randomShuffleVector list = do
-  n <- getStdRandom $ uniformR (0, factorial (ulength list) - 1)
+  seed <- randomIO
   return $ runST $ do
+    rng <- newSTGenM (mkStdGen seed)
     vm <- newSTFromList list
-    shuffleVector vm n
-    V.freeze vm
+    fisherYatesVector vm rng
+    G.freeze vm
