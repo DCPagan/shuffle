@@ -1,10 +1,12 @@
 module Main (main) where
 
-import Data.Vector (Vector)
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Data.Vector (Vector, toList)
 import Shuffle (randomShuffleVector)
 
 main :: IO ()
 main =
-  words <$> getContents
-    >>= (randomShuffleVector :: [String] -> IO (Vector String))
-    >>= mapM_ putStrLn
+  T.lines <$> TIO.getContents
+    >>= (randomShuffleVector :: [T.Text] -> IO (Vector T.Text))
+    >>= TIO.putStr . T.unlines . toList

@@ -9,12 +9,10 @@ module Shuffle
     factoradicBE,
     factoradicLE,
     ulength,
-    newSTFromList,
   )
 where
 
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.ST
 import Data.Foldable (foldl')
 import Data.Ix (range)
 import Data.List (unfoldr)
@@ -102,23 +100,15 @@ randomShuffle :: MonadIO m => [a] -> m [a]
 randomShuffle = fmap <$> shuffle <*> getStdRandom . curry uniformR 0 . pred . factorial . ulength
 
 {-
- - Initialize a state thread with a vector of the given data.
- -}
-newSTFromList :: (GM.PrimMonad m, GM.MVector v a) => [a] -> m (v (GM.PrimState m) a)
-newSTFromList list = do
-  vm <- GM.new (length list)
-  mapM_ (uncurry $ GM.write vm) (zip (enumFrom 0) list)
-  return vm
-
-{-
  - The Fisher-Yates algorithm applied to a mutable vector.
  -}
 fisherYatesVector ::
   (GM.PrimMonad m, GM.MVector v a, RandomGenM g r m) =>
-  v (GM.PrimState m) a -> g -> m ()
-fisherYatesVector vm rng = do
+  g -> v (GM.PrimState m) a -> m (v (GM.PrimState m) a)
+fisherYatesVector rng vm = do
   let l = pred $ GM.length vm
   mapM_ (\i -> randomRM (i, l) rng >>= GM.swap vm i) $ enumFromTo 0 (pred l)
+  return vm
 
 {-
  - Randomly shuffle a list as a vector.
@@ -126,8 +116,7 @@ fisherYatesVector vm rng = do
 randomShuffleVector :: (MonadIO m, G.Vector v a) => [a] -> m (v a)
 randomShuffleVector list = do
   seed <- randomIO
-  return $ runST $ do
+  return $ G.create $ do
     rng <- newSTGenM (mkStdGen seed)
-    vm <- newSTFromList list
-    fisherYatesVector vm rng
-    G.freeze vm
+    vm <- (G.unsafeThaw . G.fromList) list
+    fisherYatesVector rng vm
