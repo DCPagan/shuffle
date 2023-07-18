@@ -9,6 +9,8 @@ module Shuffle
     factorialRange,
     factoradicBE,
     factoradicLE,
+    invertFactoradicBE,
+    invertFactoradicLE,
     ulength,
   )
 where
@@ -61,6 +63,26 @@ factoradicLE = (. (1,)) . unfoldr . f
     f l (i, n)
       | i > l = Nothing
       | otherwise = Just (mod n i, (succ i, div n i))
+
+{-
+ - Calculate the natural number from the given (big-endian) factoradic
+ - modulo the factorial of its length.
+ -}
+invertFactoradicBE :: [Natural] -> Natural
+invertFactoradicBE factoradic = fst $ foldl' f j factoradic
+  where
+    f (n, l) i = (n + i * factorial l, pred l)
+    j = (0, pred . ulength $ factoradic)
+
+{-
+ - Calculate the natural number from the given (little-endian) factoradic
+ - modulo the factorial of its length.
+ -}
+invertFactoradicLE :: [Natural] -> Natural
+invertFactoradicLE = fst . foldl' f j
+  where
+    f (n, l) i = (n + i * factorial l, succ l)
+    j = (0, 0)
 
 {-
  - Swap the first element of a list with that of the given index.
