@@ -2,6 +2,7 @@ module Shuffle
   ( fisherYates,
     fisherYatesVector,
     shuffle,
+    shuffleVector,
     randomShuffle,
     randomShuffleVector,
     factorial,
@@ -111,12 +112,18 @@ fisherYatesVector rng vm = do
   return vm
 
 {-
+ - Shuffle a list as a vector given a seed
+ -}
+shuffleVector :: G.Vector v a => Int -> [a] -> v a
+shuffleVector seed list = G.create $ do
+    rng <- newSTGenM (mkStdGen seed)
+    vm <- (G.unsafeThaw . G.fromList) list
+    fisherYatesVector rng vm
+
+{-
  - Randomly shuffle a list as a vector.
  -}
 randomShuffleVector :: (MonadIO m, G.Vector v a) => [a] -> m (v a)
 randomShuffleVector list = do
   seed <- randomIO
-  return $ G.create $ do
-    rng <- newSTGenM (mkStdGen seed)
-    vm <- (G.unsafeThaw . G.fromList) list
-    fisherYatesVector rng vm
+  return $ shuffleVector seed list
